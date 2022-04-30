@@ -46,11 +46,12 @@
 <script lang="ts">
 import { mapGetters, mapActions, mapMutations } from 'vuex';
 import path from 'path';
-import { debounce } from 'lodash';
+import { debounce, throttle } from 'lodash';
+import io from 'socket.io-client';
 import { windowRectService } from '@/services/window/WindowRectService';
 import { playInfoStorageService } from '@/services/storage/PlayInfoStorageService';
 import { settingStorageService } from '@/services/storage/SettingStorageService';
-import { generateShortCutImageBy, ShortCut } from '@/libs/utils';
+import { randomString, generateShortCutImageBy, ShortCut } from '@/libs/utils';
 import { Video as videoMutations } from '@/store/mutationTypes';
 import { Video as videoActions, AudioTranslate as atActions } from '@/store/actionTypes';
 import { videodata } from '@/store/video';
@@ -81,6 +82,7 @@ export default {
       audioCtx: null,
       gainNode: null,
       enableVideoInfoStore: false, // tag can save video data when quit
+      userId: '', // userId，用以区分哪个用户发送的消息
     };
   },
   computed: {
@@ -190,6 +192,12 @@ export default {
       this.toggleMute();
     });
     this.$bus.$on('toggle-playback', debounce(() => {
+      const controlParam = {
+        user: this.userID,
+        action: this.paused ? 'play' : 'pause',
+        time: videodata.time,
+      };
+      this.socket.emit('video-control', JSON.stringify(controlParam));
       this[this.paused ? 'play' : 'pause']();
       // this.$ga.event('app', 'toggle-playback');
     }, 50, { leading: true }));
@@ -229,11 +237,17 @@ export default {
         this.$bus.$emit('seek', 0);
       }
     });
-    this.$bus.$on('seek', (e: number) => {
+    this.$bus.$on('seek', throttle((e: number) => {
       // update vuex currentTime to use some where
       this.seekTime = [e];
       this.updateVideoCurrentTime(e);
-    });
+      const controlParam = {
+        user: this.userId,
+        action: 'seek',
+        time: e,
+      };
+      this.socket.emit('video-control', JSON.stringify(controlParam));
+    }, 200, { leading: false }));
     this.$bus.$on('seek-forward', (delta: number) => this.$bus.$emit('seek', videodata.time + Math.abs(delta)));
     this.$bus.$on('seek-backward', (delta: number) => {
       const finalSeekTime = videodata.time - Math.abs(delta);
@@ -241,6 +255,44 @@ export default {
       // if (finalSeekTime <= 0)
       this.$bus.$emit('seek', finalSeekTime);
     });
+
+    /* 生成10位userId */
+    this.userId = randomString(10);
+
+    const that = this;
+
+    function resultHandler(result) {
+      switch (result.action) {
+        default:
+          that.pause();
+          break;
+        case 'play':
+          that.seekTime = [result.time];
+          that.updateVideoCurrentTime(result.time);
+          that.play();
+          break;
+        case 'pause':
+          that.seekTime = [result.time];
+          that.updateVideoCurrentTime(result.time);
+          that.pause();
+          break;
+        case 'seek':
+          that.seekTime = [result.time];
+          that.updateVideoCurrentTime(result.time);
+          break;
+      }
+    }
+
+    /* 使用socket-io */
+
+    this.socket = io('http://118.25.156.55:2233'); // 替换成你的websocket服务地址
+    this.socket.on('video-control', (res: string) => {
+      const result = JSON.parse(res);
+      if (result.user !== this.userId) {
+        resultHandler(result);
+      }
+    });
+
     this.$bus.$on('drag-over', () => {
       this.maskBackground = 'rgba(255, 255, 255, 0.18)';
     });

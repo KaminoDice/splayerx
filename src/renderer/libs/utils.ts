@@ -441,3 +441,11 @@ export function offListenersExceptWhiteList(bus: any) { // eslint-disable-line
     }
   }
 }
+/* 生成随机字符串 */
+export function randomString(length:number) {
+  let str = '';
+  for (let i = 0; i < length; i++) {
+    str += Math.random().toString(36).substr(2);
+  }
+  return str.substr(0, length);
+}

@@ -130,16 +130,16 @@
 }
 
 .subtitle-style3 {
-  // padding: 0px;
-  font-family: $font-yuanti;
+  font-family: 'FZZhongDengXian-Z07';
   font-size: 9px;
-  letter-spacing: 1px;
-  // white-space: pre-line;
-  // word-break: break-all;
+  letter-spacing: 0.2px;
   font-weight: 800;
   opacity: 1;
   color: #fff;
-  background-color: #009be6;
+  text-shadow: 0.4px 0.4px 0.7px #0080FF,
+  0.2px 0.2px 0.3px #009be6,
+  0.3px 0.3px 0.3px #009be6,
+  0.4px 0.4px 0.3px #009be6;
   -webkit-background-clip: text;
   -webkit-text-fill-color: white;
   -webkit-text-stroke: 1.6px transparent;
